@@ -40,8 +40,10 @@ class RNNForLM(chainer.Chain):
         exs = F.split_axis(ex, x_section, 0, force_tuple=True)
 
         xp = self.xp
-        hx = chainer.Variable(xp.zeros((self.n_layer, len(xs), self.n_units), dtype=xp.float32))
-        cx = chainer.Variable(xp.zeros((self.n_layer, len(xs), self.n_units), dtype=xp.float32))
+        hx = chainer.Variable(
+            xp.zeros((self.n_layer, len(xs), self.n_units), dtype=xp.float32))
+        cx = chainer.Variable(
+            xp.zeros((self.n_layer, len(xs), self.n_units), dtype=xp.float32))
         _, _, ys = self.l1(hx, cx, exs)
         y = [self.l2(F.dropout(i)) for i in ys]
         return y
@@ -103,9 +105,10 @@ class ParallelSequentialIterator(chainer.dataset.Iterator):
         items = []
         for offset in self.offsets:
             start = (offset + self.iteration) % len(self.dataset)
-            item = self.dataset[start : start+self.bprop_len]
-            if start+self.bprop_len > len(self.dataset):
-                items.append(np.concatenate((item, self.dataset[:start + self.bprop_len - len(self.dataset)])))
+            item = self.dataset[start: start + self.bprop_len]
+            if start + self.bprop_len > len(self.dataset):
+                items.append(np.concatenate(
+                    (item, self.dataset[:start + self.bprop_len - len(self.dataset)])))
             else:
                 items.append(item)
         return items
@@ -166,7 +169,8 @@ class BPTTUpdater(training.StandardUpdater):
         xs, ts = self.converter(batch, self.device)
 
         # Compute the loss at this time step and accumulate it
-        loss = optimizer.target([chainer.Variable(x) for x in xs], [chainer.Variable(t) for t in ts])
+        loss = optimizer.target([chainer.Variable(x) for x in xs], [
+                                chainer.Variable(t) for t in ts])
 
         optimizer.target.cleargrads()  # Clear the parameter gradients
         loss.backward()  # Backprop
@@ -190,13 +194,15 @@ class BPTTEvaluator(training.extensions.Evaluator):
         it = copy.copy(iterator)
         summary = reporter_module.DictSummary()
 
-        for batch in it:
-            observation = {}
-            with reporter_module.report_scope(observation):
-                xs, ts = self.converter(batch, self.device)
-                eval_func([chainer.Variable(x)  for x in xs], [chainer.Variable(t) for t in ts])
+        with chainer.no_backprop_mode():
+            for batch in it:
+                observation = {}
+                with reporter_module.report_scope(observation):
+                    xs, ts = self.converter(batch, self.device)
+                    eval_func([chainer.Variable(x)
+                               for x in xs], [chainer.Variable(t) for t in ts])
 
-            summary.add(observation)
+                summary.add(observation)
 
         return summary.compute_mean()
 
@@ -250,9 +256,11 @@ def main():
         val = val[:100]
         test = test[:100]
 
-    train_iter = ParallelSequentialIterator(train, args.batchsize, args.bproplen)
+    train_iter = ParallelSequentialIterator(
+        train, args.batchsize, args.bproplen)
     val_iter = ParallelSequentialIterator(val, 1, args.bproplen, repeat=False)
-    test_iter = ParallelSequentialIterator(test, 1, args.bproplen, repeat=False)
+    test_iter = ParallelSequentialIterator(
+        test, 1, args.bproplen, repeat=False)
 
     # Prepare an RNNLM model
     rnn = RNNForLM(n_vocab, args.unit)
